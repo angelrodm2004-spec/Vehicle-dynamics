@@ -1,0 +1,444 @@
+import matplotlib.pyplot as plt
+import math
+import numpy as np
+
+
+class Car:
+    theta_c = list(np.arange(0, 721, 1))
+    volume_list = []
+    wb_list = []
+    alpha_list = []
+    vb_list = []
+    ab_list = []
+    acg_x_list = []
+    acg_y_list = []
+    pressure_list = []
+    f_list = []
+    torque_gas_list = []
+    torque_mass_list = []
+    total_torque_list = []
+
+    def __init__(self, Lb = 0.155, Lc = 0.046, r_c = 11.5, cylinders = 8, engine_vol = 6.2, c_distance = 0.05, cyl_displacement = 0.092, mp =0.482, mb = 0.680, nd = 3.73, Ib = 2.58e-3, m_perno = 0.132, v_car = 220, diam_wheel = 0.679, wc = 520, CG = 0.35, pa=1, pb=10, pc=46, pd=3):
+        self.Lb = Lb
+        self.Lc = Lc
+        self.c_distance = c_distance
+        self.r_c = r_c
+        self.cylinders = cylinders
+        self.engine_vol = engine_vol
+        self.cyl_displacement = cyl_displacement
+        self.mp = mp
+        self.nd = nd
+        self.v_car = v_car
+        self.diam_wheel = diam_wheel
+        self.wc = wc
+        self.d = 1
+        self.mb = mb
+        self.Ib = Ib
+        self.m_perno = m_perno
+        self.CG = CG
+        self.pa = pa
+        self.pb = pb
+        self.pc = pc
+        self.pd = pd
+
+        for variable in vars(self).values():
+            if variable <= 0:
+                raise ValueError("Class atributes can not be negative")
+
+
+    def theta_b(Lb, Lc, angle):
+        return(180 - math.degrees(math.asin((Lc/Lb)*math.sin(math.radians(angle)))))
+
+    def angles(self):
+        _theta_b = []
+        for angle in Car.theta_c:
+            _theta_b.append(Car.theta_b(self.Lb, self.Lc, angle))
+        #Graph parameters
+        label="Connecting rod angle"
+        tittle = "Connecting rod vs crankshaft angle"
+        x_label = "crankshaft angle [°]"
+        y_label = "Connecting rod angle [°]"
+        save = "angle plot.png"
+        color = "red"
+        Car.graph(Car.theta_c, _theta_b, label, tittle, x_label, y_label, save, color)
+
+    def piston(self):
+        xp = []
+        for angle in Car.theta_c:
+            xp.append(self.Lc*math.cos(math.radians(angle)) + self.Lb*math.cos(math.asin((self.Lc/self.Lb)*math.sin(math.radians(angle))))
+                    + self.c_distance)
+
+        #Graph parameters
+        label="Piston position"
+        tittle = "Piston position vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label = "Piston position [m]"
+        save = "Piston plot.png"
+        color = "green"
+        Car.graph(Car.theta_c, xp, label, tittle, x_label, y_label, save, color)
+
+    def volume(self):
+        Lt = self.Lb + self.Lc + self.c_distance
+        cyl_vol = self.engine_vol/self.cylinders
+        chamber_vol = cyl_vol/(self.r_c - 1)
+        self.d = ((cyl_vol/1000)*(4/math.pi)*(1/self.cyl_displacement))**(1/2)
+        for angle in Car.theta_c:
+            xp = self.Lc*math.cos(math.radians(angle)) + self.Lb*math.cos(math.asin((self.Lc/self.Lb)*math.sin(math.radians(angle)))) + self.c_distance
+            delta_xp = Lt - xp
+            Car.volume_list.append((((math.pi/4)*self.d**2*delta_xp)*1000 + chamber_vol)/1000)
+
+        #Graph parameters
+        label="Piston volume"
+        tittle = "Piston volume vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label = "Piston volume [cubic meters [m^3]]"
+        save = "Volume plot.png"
+        color = "purple"
+        Car.graph(Car.theta_c, Car.volume_list, label, tittle, x_label, y_label, save, color)
+
+    def angular(self):
+        for angle in Car.theta_c:
+            _theta_b = Car.theta_b(self.Lb, self.Lc, angle)
+            _wb = -(self.wc*self.Lc*math.cos(math.radians(angle)))/(-self.Lb*math.cos(math.radians(_theta_b)))
+            Car.wb_list.append(_wb)
+            _alpha = (-self.Lc*math.sin(math.radians(angle))*self.wc**2 - -self.Lb*math.sin(math.radians(_theta_b))*_wb**2)/(-self.Lb*math.cos(math.radians(_theta_b)))
+            Car.alpha_list.append(_alpha)
+
+        #Graph parameters
+        label_name1="Connecting rod angular velocity"
+        tittle1 = "Connecting rod velocity vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label1 = "Connecting rod angular velocity [rad/s]"
+
+        label_name2="Connecting rod angular acceleration"
+        tittle2 = "Connecting rod angular acceleration vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label2 = "Connecting rod angular acceleration [rad/s^2]"
+        save = "Connecting rod angular velocity and acceleration"
+
+        Car.two_graphs(Car.theta_c, Car.wb_list, Car.alpha_list, label_name1, tittle1, x_label, y_label1, label_name2, tittle2, y_label2, save)
+
+    def linear_vel(self):
+        if not Car.wb_list:
+            self.angular()
+        for angle in Car.theta_c:
+            _theta_b = Car.theta_b(self.Lb, self.Lc, angle)
+            vb = -self.wc*self.Lc*math.sin(math.radians(angle))-Car.wb_list[angle]*-self.Lb*math.sin(math.radians(_theta_b))
+            ab = -self.Lc*math.cos(math.radians(angle))*self.wc**2 - -self.Lb*math.sin(math.radians(_theta_b))*Car.alpha_list[angle] - -self.Lb*math.cos(math.radians(_theta_b))*Car.wb_list[angle]**2
+            Car.vb_list.append(vb)
+            Car.ab_list.append(ab)
+
+        #Graph parameters
+        label_name1="Piston linear velocity"
+        tittle1 = "Piston linear velocity vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label1 = "Piston linear velocity [m/s]"
+
+        label_name2="Connecting rod linear acceleration"
+        tittle2 = "Connecting rod linear acceleration vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label2 = "Connecting rod linear acceleration [m/s^2]"
+        save = "Connecting rod linear velocity and acceleration"
+        Car.two_graphs(Car.theta_c, Car.vb_list, Car.ab_list, label_name1, tittle1, x_label, y_label1, label_name2, tittle2, y_label2, save)
+
+    def center_mass(self):
+        if not Car.wb_list:
+            self.angular()
+        for angle in Car.theta_c:
+            _theta_b = Car.theta_b(self.Lb, self.Lc, angle)
+            acg_x = -(self.Lc)*math.cos(math.radians(angle))*self.wc**2 - (-self.Lb*self.CG)*math.sin(math.radians(_theta_b))*Car.alpha_list[angle] - (-self.Lb*self.CG)*math.cos(math.radians(_theta_b))*Car.wb_list[angle]**2
+            acg_y = -(self.Lc)*math.sin(math.radians(angle))*self.wc**2 - (-self.Lb*self.CG)*math.cos(math.radians(_theta_b))*Car.alpha_list[angle] - (-self.Lb*self.CG)*math.sin(math.radians(_theta_b))*Car.wb_list[angle]**2
+            Car.acg_x_list.append(acg_x)
+            Car.acg_y_list.append(acg_y)
+
+        #Graph parameters
+        label_name1 = "Piston center of mass linear acceleration x"
+        tittle1 = "Piston center of mass linear acceleration x vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label1 = "Piston center of mass linear acceleration x [m/s^2]"
+
+        label_name2 = "Piston center of mass linear acceleration y"
+        tittle2 = "Piston center of mass linear acceleration y vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label2 = "Piston center of mass linear acceleration y [m/s^2]"
+        save = "Pistson center of mass linear acceleration on x and y"
+
+        Car.two_graphs(Car.theta_c, Car.acg_x_list, Car.acg_y_list, label_name1, tittle1, x_label, y_label1, label_name2, tittle2, y_label2, save)
+
+    def otto(self):
+        if not Car.volume_list:
+            self.volume()
+        pascal_conv = 101325 #Pa
+        va = max(Car.volume_list)
+        vb = min(Car.volume_list)
+        _volume = [va, vb, vb, va, va]
+        _pressure = [self.pa, self.pb, self.pc, self.pd, self.pa]
+        Car.pressure_list = list(map(lambda x: x*pascal_conv, _pressure))
+
+        #Graph parameters
+        label="Combustion Chamber Pressure"
+        tittle = "Otto Cycke"
+        x_label = "Volume [m^3]"
+        y_label = "Pressure [Pa]"
+        save = "otto cycle.png"
+        color = "purple"
+        Car.graph(_volume, Car.pressure_list, label, tittle, x_label, y_label, save, color)
+
+    def pist_pressure(self):
+        if not Car.pressure_list:
+            self.otto()
+        if not Car.volume_list:
+            self.volume()
+        pa, pb, pc, pd, *_ = Car.pressure_list
+        va, vb = [max(Car.volume_list), min(Car.volume_list)]
+        for angle in Car.theta_c:
+            match angle:
+                case angle if angle < 180:
+                    f = pa*(math.pi/4)*self.d**2
+                    Car.f_list.append(f)
+                case angle if 360 > angle >= 180:
+                    inst_volume = Car.volume_list[angle]
+                    inst_pressure = np.interp(inst_volume, [vb, va], [pb, pa])
+                    f = inst_pressure*(math.pi/4)*self.d**2
+                    Car.f_list.append(f)
+                case angle if angle == 360:
+                    inst_volume = Car.volume_list[angle]
+                    inst_pressure = pc
+                    f = inst_pressure*(math.pi/4)*self.d**2
+                    Car.f_list.append(f)
+                case angle if 540 > angle > 360:
+                    inst_volume = Car.volume_list[angle]
+                    inst_pressure = np.interp(inst_volume, [vb, va], [pc, pd])
+                    f = inst_pressure*(math.pi/4)*self.d**2
+                    Car.f_list.append(f)
+                case angle if angle >= 540:
+                    inst_volume = Car.volume_list[angle]
+                    inst_pressure = pa
+                    f = inst_pressure*(math.pi/4)*self.d**2
+                    Car.f_list.append(f)
+
+        #Graph parameters
+        label="Piston force"
+        tittle = "Piston force vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label = "Piston force [N]"
+        save = "Piston force plot.png"
+        color = "purple"
+        Car.graph(Car.theta_c, Car.f_list, label, tittle, x_label, y_label, save, color)
+
+    def gas_force(self):
+        if not Car.f_list:
+            self.pist_pressure()
+        for angle in Car.theta_c:
+            _theta_b = (Car.theta_b(self.Lb, self.Lc, angle))
+
+            #torque por gas
+            fbpx = Car.f_list[angle]
+
+            fpbx = -fbpx
+            fcbx = fpbx
+            fcby = (self.Lb*math.sin(math.radians(_theta_b))*fcbx)/(self.Lb*math.cos(math.radians(_theta_b)))
+
+            fbcx = - fcbx
+            fbcy = - fcby
+            torque = self.Lc*math.sin(math.radians(angle))*fbcx - self.Lc*math.cos(math.radians(angle))*fbcy
+            Car.torque_gas_list.append(torque)
+
+        #Graph parameters
+        label="Gas Torque"
+        tittle = "Gas Torque vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label = "Gas Torque [N*m]"
+        save = "Gas Torque plot.png"
+        color = "purple"
+        Car.graph(Car.theta_c, Car.torque_gas_list, label, tittle, x_label, y_label, save, color)
+
+    def mass_torque(self):
+        if not Car.alpha_list:
+            self.angular()
+        for angle in Car.theta_c:
+            _theta_b = (Car.theta_b(self.Lb, self.Lc, angle))
+
+            #Perno
+            fpperx = self.m_perno*self.ab_list[angle]
+
+            #Piston
+            fperpx = - fpperx
+            fbpx = self.mp*self.ab_list[angle] + fperpx
+
+            #Biela
+            fpbx = - fbpx
+            fcbx = fpbx + self.mb*self.acg_x_list[angle]
+            fcby = (self.Ib*self.alpha_list[angle] + (1-self.CG)*self.Lb*math.cos(math.radians(_theta_b))*(self.mb*self.acg_y_list[angle] + self.mb*9.81) - (1-self.CG)*self.Lb*math.sin(math.radians(_theta_b))*fpbx + self.CG*self.Lb*math.sin(math.radians(_theta_b))*fcbx)/((1-self.CG-self.CG)*self.Lb*math.cos(math.radians(_theta_b)))
+
+            #Cigueñal
+            fbcx = -fcbx
+            fbcy = - fcby
+            torque = self.Lc*math.sin(math.radians(angle))*fbcx - self.Lc*math.cos(math.radians(angle))*fbcy
+            Car.torque_mass_list.append(torque)
+
+        #Graph parameters
+        label="Gas Torque"
+        tittle = "Mass Torque vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label = "Mass Torque [N*m]"
+        save = "Mass Torque plot.png"
+        color = "purple"
+        Car.graph(Car.theta_c, Car.torque_mass_list, label, tittle, x_label, y_label, save, color)
+
+    def total_torque(self):
+        if not Car.torque_gas_list:
+            self.gas_force()
+        if not Car.torque_mass_list:
+            self.mass_torque()
+
+        for angle in Car.theta_c:
+            torque = Car.torque_gas_list[angle] + Car.torque_mass_list[angle]
+            Car.total_torque_list.append(torque)
+
+
+        #Graph parameters
+        label="Total Torque"
+        tittle = "Total Torque vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label = "Total Torque [N*m]"
+        save = "Total Torque plot.png"
+        color = "purple"
+        Car.graph(Car.theta_c, Car.total_torque_list, label, tittle, x_label, y_label, save, color)
+
+    def eight_cyl_torque(self, torque):
+        cylinders = []
+        angle = 0
+        for cylinder in range(8):
+            cylinders.append(list(torque[angle - len(Car.theta_c):] + torque[:angle]))
+            angle += 90
+        return(cylinders)
+
+    def sum_torque(self, cylinders):
+        sum_list = []
+        sum = 0
+        for angle in Car.theta_c:
+            for cylinder in cylinders:
+                sum = cylinder[angle] + sum
+            sum_list.append(sum)
+            sum = 0
+        return sum_list
+
+    def torque_comparison(self):
+        if not Car.total_torque_list:
+            self.total_torque()
+        eight_t_torque = self.eight_cyl_torque(Car.total_torque_list)
+        prom_t_torque = sum(self.sum_torque(eight_t_torque))/len(Car.theta_c)
+        total_t = self.sum_torque(eight_t_torque)
+
+        eight_g_torque = self.eight_cyl_torque(Car.torque_gas_list)
+        prom_g_torque = sum(self.sum_torque(eight_g_torque))/len(Car.theta_c)
+        total_gas = self.sum_torque(eight_g_torque)
+
+        eight_m_torque = self.eight_cyl_torque(Car.torque_mass_list)
+        prom_m_torque = sum(self.sum_torque(eight_m_torque))/len(Car.theta_c)
+        total_mass = self.sum_torque(eight_m_torque)
+
+        #Graph parameters
+        label1="Total Eight cylinders torque"
+        tittle1 = "Total Eight cylinders torque vs crankshat angle"
+        x_label = "crankshaft angle [°]"
+        y_label1 = "Total Eight cylinders torque [N*m]"
+
+        label2="Eight cylinders gas torque"
+        tittle2 = "Eight cylinders gas torque vs crankshat angle"
+        y_label2 = "Eight cylinders gas torque [N*m]"
+
+        label3="Eight cylinders mass torque"
+        tittle3 = "Eight cylinders mass torque vs crankshat angle"
+        y_label3 = "Eight cylinders mass torque [N*m]"
+
+        save_name = "Eight cylinders torque plot.png"
+
+        Car.three_graphs(Car.theta_c, eight_t_torque, eight_g_torque, eight_m_torque, prom_t_torque, prom_g_torque, prom_m_torque, total_t, total_gas, total_mass, label1, tittle1, x_label, y_label1, label2, tittle2, y_label2, label3, tittle3, y_label3, save_name)
+
+
+    def graph(x, y, label_name, tittle, x_label, y_label, save_name, col):
+        plt.plot(x, y, label=label_name, color=col)
+        plt.title(tittle)
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(save_name)
+        plt.close()
+
+    def two_graphs(x, y1, y2, label_name1, tittle1, x_label, y_label1, label_name2, tittle2, y_label2, save_name):
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+
+        ax1.plot(x, y1, label=label_name1, color='blue')
+        ax1.set_title(tittle1)
+        ax1.set_xlabel(x_label)
+        ax1.set_ylabel(y_label1)
+        ax1.grid(True)
+
+        ax2.plot(x, y2, label=label_name2, color='red')
+        ax2.set_title(tittle2)
+        ax2.set_xlabel(x_label)
+        ax2.set_ylabel(y_label2)
+        ax2.grid(True)
+
+        plt.tight_layout()
+        plt.savefig(save_name)
+        plt.close()
+
+    def three_graphs(x, y1, y2, y3, y1_prom, y2_prom, y3_prom, tprom1, tprom2, tprom3, label_name1, tittle1, x_label, y_label1, label_name2, tittle2, y_label2, label_name3, tittle3, y_label3, save_name):
+        fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(15,5))
+
+        index = 1
+        for cylinder in y1:
+            ax1.plot(x, cylinder, label=f"Piston {index}", alpha=0.3)
+            ax1.set_title(tittle1)
+            ax1.set_xlabel(x_label)
+            ax1.set_ylabel(y_label1)
+            ax1.grid()
+            index += 1
+        ax1.axhline(y1_prom, linestyle='--', label='Total torque average')
+        ax1.plot(x, tprom1, label=label_name1, color='red')
+        ax1.legend(ncol=2)
+
+        index = 1
+        for cylinder in y2:
+            ax2.plot(x, cylinder, label=f"Piston {index}", alpha=0.3)
+            ax2.set_title(tittle2)
+            ax2.set_xlabel(x_label)
+            ax2.set_ylabel(y_label2)
+            ax2.grid(True)
+            index += 1
+        ax2.axhline(y2_prom, linestyle='--', label='Gas torque average')
+        ax2.plot(x, tprom2, label=label_name1, color='purple')
+        ax2.legend(ncol=2)
+
+        index = 1
+        for cylinder in y3:
+            ax3.plot(x, cylinder, label=f"Piston {index}", alpha=0.3)
+            ax3.set_title(tittle3)
+            ax3.set_xlabel(x_label)
+            ax3.set_ylabel(y_label3)
+            ax3.grid(True)
+            index += 1
+        ax3.axhline(y3_prom, linestyle='--', label='Mass torque average')
+        ax3.plot(x, tprom3, label=label_name1, color='green')
+        ax3.legend(ncol=2)
+
+        plt.tight_layout()
+        plt.grid(True)
+        plt.savefig(save_name)
+        plt.close()
+
+
+def main():
+    car = Car(Lb=0.155, Lc=0.046)
+    car.linear_vel()
+    car.center_mass()
+    car.total_torque()
+
+
+if __name__ == "__main__":
+    main()
