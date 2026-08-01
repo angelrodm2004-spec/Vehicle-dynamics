@@ -67,7 +67,7 @@ pip install -r requirements.txt
 ## 🛠️ Quick Start
 
 ```python
-from vehicle dynamics import Car
+from Vehicle dynamics import Car
 
 # 1. Create a Car object using the default parameters
 car = Car()
