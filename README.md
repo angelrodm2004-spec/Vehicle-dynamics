@@ -1,5 +1,8 @@
 # Vehicle Dynamics
 
+#### Video Demo:  <https://youtu.be/Ed_bkD-1tSM>
+
+#### Description:
 A Python-based simulation of a horizontally configured automotive piston–crank mechanism. The program provides visual tools for understanding the physics of an internal combustion engine, including piston position, velocity, acceleration, pressure, force, and torque.
 
 This project is intended for automotive enthusiasts, engineering students, and engineers interested in engine and vehicle dynamics.
